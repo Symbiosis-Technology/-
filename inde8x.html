@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0f16">
+<title>桌面浏览器 · PC Mode</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none}
+body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+background:#0b0f16;color:#e6edf3;display:flex;flex-direction:column;height:100dvh}
+button,input{font-family:inherit;font-size:14px;color:inherit}
+:root{--line:#1e2a3d;--card:#141c2b;--acc:#4c8dff;--ok:#3ddc97;--warn:#ffb02e;--bad:#ff5d5d}
+
+/* ---------- 顶栏 ---------- */
+#bar{display:flex;align-items:center;gap:6px;padding:6px 8px;background:#111826;border-bottom:1px solid var(--line);
+padding-top:calc(6px + env(safe-area-inset-top));flex:0 0 auto}
+.ico{width:34px;height:34px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;border-radius:10px;
+background:#1a2436;border:1px solid var(--line);font-size:16px;line-height:1;cursor:pointer;padding:0}
+.ico:active{background:#243149}
+.ico.off{opacity:.4}
+#urlbox{flex:1;min-width:0;display:flex;align-items:center;gap:6px;background:#0d1420;border:1px solid var(--line);
+border-radius:10px;padding:0 8px;height:34px}
+#pc{font-size:10px;font-weight:700;letter-spacing:.5px;background:var(--acc);color:#fff;border-radius:5px;padding:2px 5px;flex:0 0 auto}
+#pc.off{background:#3a4658;color:#97a3b6}
+#url{flex:1;min-width:0;border:0;background:transparent;outline:none;height:32px;font-size:13px}
+#url::placeholder{color:#5b6a80}
+
+/* ---------- 主区 ---------- */
+#main{flex:1;position:relative;overflow:hidden;background:#161d2b}
+#wrap{position:absolute;inset:0;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;background:#202839}
+#sizer{position:relative}
+#stage{position:absolute;top:0;left:0;transform-origin:0 0;background:#fff;overflow:hidden}
+#view{width:100%;height:100%;border:0;display:block;background:#fff}
+
+/* ---------- 主页 ---------- */
+#home{position:absolute;inset:0;overflow:auto;background:#0b0f16;padding:16px 14px 40px;
+padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+.logo{text-align:center;font-size:22px;font-weight:700;margin:18px 0 4px;letter-spacing:.5px}
+.logo span{color:var(--acc)}
+.sub{text-align:center;color:#7d8ba1;font-size:12px;margin-bottom:18px}
+.searchbox{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);
+border-radius:14px;padding:6px 8px 6px 12px}
+.searchbox input{flex:1;min-width:0;border:0;background:transparent;outline:none;height:38px;font-size:15px}
+.go{height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--acc);color:#fff;font-weight:600;flex:0 0 auto}
+.engines{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;-webkit-overflow-scrolling:touch}
+.engines button{flex:0 0 auto;border:1px solid var(--line);background:#141c2b;color:#a9b6c9;border-radius:999px;
+padding:6px 12px;font-size:12px}
+.engines button.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+.sect{margin-top:20px;color:#7d8ba1;font-size:12px;font-weight:600;letter-spacing:.5px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.grid a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:var(--card);
+border:1px solid var(--line);border-radius:12px;padding:10px 4px;text-decoration:none;color:#cdd7e5;font-size:11px;text-align:center}
+.grid a:active{background:#1d283c}
+.grid .em{font-size:20px;line-height:1}
+.recent{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.recent button{border:1px solid var(--line);background:#141c2b;color:#a9b6c9;border-radius:999px;padding:6px 10px;
+font-size:12px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tip{margin-top:22px;color:#5f6d83;font-size:11.5px;line-height:1.7;border-top:1px solid var(--line);padding-top:12px}
+
+/* ---------- 状态 ---------- */
+#status{position:absolute;left:0;right:0;top:0;background:#0f1725ee;border-bottom:1px solid var(--line);
+padding:8px 12px;font-size:12px;color:#9fb0c6;display:none;z-index:5;align-items:center;gap:8px}
+#status.on{display:flex}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--warn);animation:b 1s infinite}
+@keyframes b{50%{opacity:.25}}
+
+/* ---------- 提示 ---------- */
+#toast{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));background:#0f1725f2;
+border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:12.5px;color:#dbe4f0;z-index:50;
+opacity:0;transform:translateY(12px);transition:.22s;pointer-events:none;max-width:520px;margin:0 auto}
+#toast.on{opacity:1;transform:none}
+
+/* ---------- 设置面板 ---------- */
+#mask{position:fixed;inset:0;background:#000a;z-index:60;display:none}
+#mask.on{display:block}
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;background:#0f1623;border-top:1px solid var(--line);
+border-radius:18px 18px 0 0;padding:14px 14px calc(24px + env(safe-area-inset-bottom));max-height:86vh;overflow:auto;
+transform:translateY(101%);transition:.25s}
+#sheet.on{transform:none}
+#sheet h3{margin:4px 0 12px;font-size:15px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid #182234}
+.row:first-of-type{border-top:0}
+.row label{font-size:13px;color:#c3cfdf}
+.row .hint{display:block;color:#6b7a90;font-size:11px;margin-top:2px;font-weight:400}
+select,input.txt{background:#0d1420;border:1px solid var(--line);border-radius:9px;padding:7px 9px;font-size:13px;
+max-width:60%;outline:none}
+input.txt{width:60%;min-width:140px}
+.mini{border:1px solid var(--line);background:#141c2b;border-radius:9px;padding:7px 11px;font-size:12.5px}
+.mini.ok{background:#123a2b;border-color:#1d6a4c;color:#9df3cf}
+pre{background:#0d1420;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:11px;overflow:auto;
+color:#9fb0c6;line-height:1.5;margin:8px 0 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chips button{border:1px solid var(--line);background:#141c2b;border-radius:999px;padding:6px 10px;font-size:12px;color:#a9b6c9}
+.chips button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+details{margin-top:10px}
+summary{color:var(--acc);font-size:12.5px;cursor:pointer}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+
+<header id="bar">
+  <button class="ico" id="bBack" title="后退">‹</button>
+  <button class="ico" id="bFwd" title="前进">›</button>
+  <button class="ico" id="bReload" title="刷新">⟳</button>
+  <div id="urlbox">
+    <span id="pc">PC</span>
+    <input id="url" placeholder="搜索，或输入网址" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+  </div>
+  <button class="ico" id="bHome" title="主页">⌂</button>
+  <button class="ico" id="bSet" title="设置">⚙</button>
+</header>
+
+<main id="main">
+  <div id="wrap" class="hide"><div id="sizer"><div id="stage"><iframe id="view" scrolling="no" referrerpolicy="no-referrer-when-downgrade"></iframe></div></div></div>
+
+  <div id="home">
+    <div class="logo">桌面<span>浏览器</span></div>
+    <div class="sub">手机屏幕 · 电脑视口 · 电脑版网页</div>
+    <div class="searchbox">
+      <input id="q" placeholder="输入关键词搜索" autocomplete="off" enterkeyhint="search">
+      <button class="go" id="bGo">搜索</button>
+    </div>
+    <div class="engines" id="engines"></div>
+    <div class="sect">常用站点（默认进电脑版）</div>
+    <div class="grid" id="sites"></div>
+    <div class="sect hide" id="recentSect">最近访问</div>
+    <div class="recent" id="recent"></div>
+    <div class="tip">
+      原理：网页被放进一个 1366×768 的「电脑视口」里再整体缩放，同时把页面里的浏览器指纹改成 Windows + Chrome，
+      绝大多数网站会因此返回电脑版排版。<br>
+      若某站点空白或报错，点右上角 ⚙ →「加载模式」切换，或换一个代理试试。
+    </div>
+  </div>
+
+  <div id="status"><span class="dot"></span><span id="statusTxt">加载中…</span>
+    <span id="stBtns" class="hide" style="margin-left:auto;display:flex;gap:6px">
+      <button class="mini" id="stRetry">重试</button>
+      <button class="mini" id="stOpen">外部打开</button>
+    </span>
+  </div>
+</main>
+
+<div id="toast"></div>
+<div id="mask"></div>
+<div id="sheet">
+  <h3>设置</h3>
+
+  <div class="row"><label>电脑视口</label>
+    <select id="sVp">
+      <option value="1366x768">1366 × 768（笔记本 推荐）</option>
+      <option value="1920x1080">1920 × 1080</option>
+      <option value="1280x800">1280 × 800</option>
+      <option value="1600x900">1600 × 900</option>
+      <option value="1024x768">1024 × 768</option>
+    </select>
+  </div>
+  <div class="row"><label>缩放</label>
+    <div style="display:flex;gap:6px">
+      <button class="mini" id="zFit">适应宽度</button>
+      <button class="mini" id="z100">100%</button>
+    </div>
+  </div>
+  <div class="row"><label>伪装成</label>
+    <select id="sUa">
+      <option value="win_chrome">Windows 11 + Chrome</option>
+      <option value="win_edge">Windows 11 + Edge</option>
+      <option value="mac_safari">macOS + Safari</option>
+      <option value="win_firefox">Windows + Firefox</option>
+    </select>
+  </div>
+  <div class="row"><label>加载模式<span class="hint">代理：能进电脑版、可绕过禁止嵌入；直连：最真实但经常被拒</span></label>
+    <select id="sMode">
+      <option value="auto">智能（代理优先，失败转直连）</option>
+      <option value="proxy">只用代理</option>
+      <option value="direct">只用直连</option>
+    </select>
+  </div>
+  <div class="row"><label>公共代理</label>
+    <select id="sProxy">
+      <option value="auto">自动选择（推荐）</option>
+      <option value="allorigins">AllOrigins</option>
+      <option value="codetabs">CodeTabs</option>
+      <option value="corsproxy">corsproxy.io</option>
+      <option value="corslol">cors.lol</option>
+      <option value="custom">自定义代理</option>
+    </select>
+  </div>
+  <div class="row hide" id="rowCustom"><label>代理前缀<span class="hint">把目标网址接在你填的地址后面</span></label>
+    <input class="txt" id="sCustom" placeholder="https://xxx.workers.dev/?url=">
+  </div>
+  <div class="row"><label>默认搜索引擎</label>
+    <select id="sEngine"></select>
+  </div>
+
+  <div class="row"><label>代理自检</label><button class="mini" id="bTest">开始检测</button></div>
+  <div class="chips" id="testOut"></div>
+
+  <details>
+    <summary>想要「真·电脑 UA」？看这里（进阶）</summary>
+    <div style="color:#8b9ab0;font-size:11.5px;line-height:1.7;margin-top:8px">
+      网页内部的 UA 已被改写，但请求头仍由公共代理发出。若站点仍返回手机版，可自建一个代理（Cloudflare Worker，免费），
+      它就是一台真正的电脑在替你访问：
+    </div>
+<pre>export default {
+  async fetch(req){
+    const u = new URL(req.url).searchParams.get('url');
+    if(!u) return new Response('need ?url=');
+    const r = await fetch(u, {
+      headers: {
+        'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+        'Accept-Language':'zh-CN,zh;q=0.9'
+      }
+    });
+    const body = await r.text();
+    const h = new Headers(r.headers);
+    h.set('Access-Control-Allow-Origin','*');
+    h.delete('X-Frame-Options'); h.delete('Content-Security-Policy');
+    return new Response(body,{status:r.status,headers:h});
+  }
+}</pre>
+    <div style="color:#8b9ab0;font-size:11.5px;margin-top:8px">
+      部署后把「公共代理」选为「自定义代理」，前缀填 <code>https://你的域名/?url=</code>。
+    </div>
+  </details>
+
+  <div class="row"><label>清除历史记录</label><button class="mini" id="bClear">清除</button></div>
+</div>
+
+<script>
+/* ==================== 常量 ==================== */
+const UAS = {
+  win_chrome:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+  win_edge:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0',
+  mac_safari:'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15',
+  win_firefox:'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0'
+};
+const ENGINES = {
+  bing:{n:'必应', u:q=>'https://www.bing.com/search?q='+encodeURIComponent(q)+'&form=QBLH&ensearch=0'},
+  baidu:{n:'百度', u:q=>'https://www.baidu.com/s?ie=utf-8&tn=baiduhome_pg&wd='+encodeURIComponent(q)},
+  google:{n:'谷歌', u:q=>'https://www.google.com/search?q='+encodeURIComponent(q)+'&hl=zh-CN'},
+  duck:{n:'DuckDuckGo', u:q=>'https://html.duckduckgo.com/html/?q='+encodeURIComponent(q)},
+  sogou:{n:'搜狗', u:q=>'https://www.sogou.com/web?query='+encodeURIComponent(q)},
+  so360:{n:'360', u:q=>'https://www.so.com/s?q='+encodeURIComponent(q)},
+  toutiao:{n:'头条', u:q=>'https://so.toutiao.com/search?keyword='+encodeURIComponent(q)}
+};
+const SITES = [
+  {e:'🔍', n:'百度', u:'https://www.baidu.com'},
+  {e:'🌐', n:'必应', u:'https://www.bing.com'},
+  {e:'📺', n:'B站', u:'https://www.bilibili.com'},
+  {e:'💬', n:'知乎', u:'https://www.zhihu.com'},
+  {e:'🐦', n:'微博', u:'https://weibo.com'},
+  {e:'🛒', n:'淘宝', u:'https://www.taobao.com'},
+  {e:'📦', n:'京东', u:'https://www.jd.com'},
+  {e:'📚', n:'豆瓣', u:'https://www.douban.com'},
+  {e:'🐱', n:'GitHub', u:'https://github.com'},
+  {e:'📰', n:'贴吧', u:'https://tieba.baidu.com'},
+  {e:'🎵', n:'网易云', u:'https://music.163.com'},
+  {e:'📖', n:'微信读书', u:'https://weread.qq.com'},
+  {e:'📈', n:'雪球', u:'https://xueqiu.com'},
+  {e:'🧠', n:'掘金', u:'https://juejin.cn'},
+  {e:'📮', n:'新浪新闻', u:'https://news.sina.com.cn'},
+  {e:'🗂', n:'StackOverflow', u:'https://stackoverflow.com'}
+];
+// 手机版域名 → 电脑版域名
+const PC_HOST = [
+  [/^m\.|^mob(ile)?\./i, ''],
+  [/^m\.(.*)$/i, '$1'],
+];
+const HOST_MAP = {
+  'm.baidu.com':'www.baidu.com','m.zhihu.com':'www.zhihu.com','m.bilibili.com':'www.bilibili.com',
+  'm.weibo.cn':'weibo.com','m.weibo.com':'weibo.com','m.douban.com':'www.douban.com',
+  'm.taobao.com':'www.taobao.com','m.jd.com':'www.jd.com','m.toutiao.com':'www.toutiao.com',
+  'm.xueqiu.com':'xueqiu.com','m.smzdm.com':'www.smzdm.com','m.acfun.cn':'www.acfun.cn',
+  'm.ithome.com':'www.ithome.com','m.163.com':'www.163.com','m.qq.com':'www.qq.com',
+  'm.sohu.com':'www.sohu.com','m.36kr.com':'36kr.com','m.douyu.com':'www.douyu.com',
+  'm.hupu.com':'bbs.hupu.com','m.coolapk.com':'www.coolapk.com','m.juejin.cn':'juejin.cn',
+  'm.music.163.com':'music.163.com','m.bbc.com':'www.bbc.com','m.youtube.com':'www.youtube.com',
+  'm.twitter.com':'twitter.com','m.facebook.com':'www.facebook.com','m.wikipedia.org':'zh.wikipedia.org'
+};
+const PROXIES = {
+  allorigins:{n:'AllOrigins', f:u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u)},
+  codetabs:{n:'CodeTabs', f:u=>'https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(u)},
+  corsproxy:{n:'corsproxy.io', f:u=>'https://corsproxy.io/?'+encodeURIComponent(u)},
+  corslol:{n:'cors.lol', f:u=>'https://api.cors.lol/?url='+encodeURIComponent(u)}
+};
+
+/* ==================== 状态 ==================== */
+const LS='dmb_cfg_v1';
+const st = Object.assign({
+  vp:'1366x768', ua:'win_chrome', mode:'auto', proxy:'auto', custom:'',
+  engine:'bing', scale:0, fit:true, lastProxy:'', pc:true
+}, load());
+function load(){ try{ return JSON.parse(localStorage.getItem(LS)||'{}'); }catch(e){ return {}; } }
+function save(){ try{ localStorage.setItem(LS, JSON.stringify(st)); }catch(e){} }
+let hist=[]; let hi=-1; let curUrl='';
+try{ hist = JSON.parse(localStorage.getItem('dmb_hist_v1')||'[]'); }catch(e){ hist=[]; }
+
+const $ = s=>document.querySelector(s);
+const wrap=$('#wrap'), sizer=$('#sizer'), stage=$('#stage'), view=$('#view'), home=$('#home');
+const urlInput=$('#url'), status=$('#status'), statusTxt=$('#statusTxt');
+
+/* ==================== 工具 ==================== */
+function toast(msg, ms=2200){ const t=$('#toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'), ms); }
+function showStatus(txt, btns){ statusTxt.textContent=txt; status.classList.add('on');
+  $('#stBtns').classList.toggle('hide', !btns); }
+function hideStatus(){ status.classList.remove('on'); $('#stBtns').classList.add('hide'); }
+$('#stRetry').onclick = ()=>reload();
+$('#stOpen').onclick = ()=>{ if(curUrl) window.open(curUrl, '_blank'); };
+function vp(){ const p=st.vp.split('x'); return {w:+p[0], h:+p[1]}; }
+
+/* URL 规范化 + 强制电脑版 */
+function toPcUrl(raw){
+  let s = String(raw||'').trim();
+  if(!s) return '';
+  if(!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(s)) s = 'https://' + s;
+  let u; try{ u = new URL(s); }catch(e){ return ''; }
+  // 域名映射：手机站 → 电脑站
+  let h = u.hostname.toLowerCase();
+  if(HOST_MAP[h]) u.hostname = HOST_MAP[h];
+  else if(/^m\./i.test(h)) u.hostname = h.replace(/^m\./i,'');
+  else if(/^mobile\./i.test(h)) u.hostname = h.replace(/^mobile\./i,'');
+  // 干掉路径里的移动目录
+  u.pathname = u.pathname.replace(/^\/(m|mobile|wap|h5|touch)\//i,'/');
+  // 去掉移动端参数
+  ['m','mobile','isapp','app','from','client','device','platform','spm','utm_source','utm_medium'].forEach(k=>u.searchParams.delete(k));
+  if(u.searchParams.get('m')==='1') u.searchParams.delete('m');
+  return u.href;
+}
+function isUrl(s){
+  s=String(s).trim();
+  if(/\s/.test(s)) return false;
+  if(/^https?:\/\//i.test(s)) return true;
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(s) && /\.(com|cn|net|org|io|dev|me|co|tv|cc|xyz|info|edu|gov|jp|us|uk|de|ru|top|site|online|wiki|app|ai|so|la|im)/i.test(s);
+}
+function searchUrl(q){ const e = ENGINES[st.engine] || ENGINES.bing; return e.u(q); }
+
+/* ==================== 代理取页 ==================== */
+function proxyList(){
+  const names = st.proxy==='auto'
+    ? (st.lastProxy ? [st.lastProxy, ...Object.keys(PROXIES).filter(k=>k!==st.lastProxy)] : Object.keys(PROXIES))
+    : [st.proxy];
+  return names.map(k=>{
+    if(k==='custom') return {n:'自定义', f:u=>{ const p=st.custom.trim(); if(!p) throw new Error('未填自定义代理'); return p + (/[?&]$/.test(p)?'':'') + encodeURIComponent(u); }};
+    return PROXIES[k] ? {n:PROXIES[k].n, k, f:PROXIES[k].f} : null;
+  }).filter(Boolean);
+}
+async function grabViaProxy(url, timeout=12000){
+  const list = proxyList(); let lastErr;
+  for(const p of list){
+    try{
+      const ctl = new AbortController();
+      const to = setTimeout(()=>ctl.abort(), timeout);
+      const r = await fetch(p.f(url), {signal:ctl.signal, headers:{'x-requested-with':'fetch'}});
+      clearTimeout(to);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const buf = await r.arrayBuffer();
+      // 编码探测（GBK 站点）
+      let charset='utf-8';
+      const head = new TextDecoder('utf-8').decode(buf.slice(0,2048));
+      const m = head.match(/charset\s*=\s*["']?\s*([\w-]+)/i);
+      if(m){ const c=m[1].toLowerCase(); if(c==='gbk'||c==='gb2312'||c==='gb18030') charset='gbk'; else if(c) charset=c; }
+      let text;
+      try{ text = new TextDecoder(charset).decode(buf); }catch(e){ text = new TextDecoder('utf-8').decode(buf); }
+      if(text.length < 200) throw new Error('内容过短');
+      st.lastProxy = p.k || st.lastProxy; save();
+      return {html:text, via:p.n};
+    }catch(e){ lastErr = e; }
+  }
+  throw new Error('全部代理失败：' + (lastErr ? lastErr.message : '未知'));
+}
+
+/* ==================== 注入脚本（伪装成电脑） ==================== */
+function spoofJs(ua, w, h){
+  const isMac = /Macintosh/.test(ua);
+  const plat = isMac ? 'MacIntel' : 'Win32';
+  const platCH = isMac ? 'macOS' : 'Windows';
+  const ff = /Firefox/.test(ua);
+  return `
+(function(){
+var UA=${JSON.stringify(ua)};
+var PLAT=${JSON.stringify(plat)};
+var N=Navigator.prototype;
+function def(o,k,v){try{Object.defineProperty(o,k,{configurable:true,get:function(){return v;}});}catch(e){}}
+function defv(o,k,v){try{Object.defineProperty(o,k,{configurable:true,value:v,writable:true});}catch(e){}}
+def(N,'userAgent',UA);
+def(N,'appVersion',UA.replace(/^Mozilla\//,''));
+def(N,'platform',PLAT);
+def(N,'vendor',${ff ? "''" : "'Google Inc.'"});
+def(N,'maxTouchPoints',0);
+def(N,'hardwareConcurrency',8);
+def(N,'deviceMemory',8);
+def(N,'language','zh-CN');
+def(N,'languages',['zh-CN','zh','en-US','en']);
+${ff ? "" : "def(N,'userAgentData',{brands:[{brand:'Chromium',version:'141'},{brand:'Google Chrome',version:'141'},{brand:'Not?A_Brand',version:'99'}],mobile:false,platform:" + JSON.stringify(platCH) + ",getHighEntropyValues:function(){return Promise.resolve({architecture:'x86',bitness:'64',model:'',platformVersion:'15.0.0',uaFullVersion:'141.0.0.0',fullVersionList:[{brand:'Google Chrome',version:'141.0.0.0'}]});}});"}
+try{ ['ontouchstart','ontouchmove','ontouchend','ontouchcancel'].forEach(function(k){
+  if(k in window){ try{ delete window[k]; }catch(e){ defv(window,k,undefined); } }
+}); }catch(e){}
+try{ def(Screen.prototype,'width',${w}); def(Screen.prototype,'height',${h});
+     def(Screen.prototype,'availWidth',${w}); def(Screen.prototype,'availHeight',${h}); }catch(e){}
+try{ def(window,'devicePixelRatio',1); }catch(e){}
+try{ document.documentElement.setAttribute('data-pc-mode','1'); }catch(e){}
+
+/* 把站内跳转交回外壳，保持电脑视口与伪装 */
+function nav(u){ try{ parent.postMessage({__dmb:'nav', url:u}, '*'); }catch(e){ location.href=u; } }
+document.addEventListener('click', function(e){
+  var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+  if(!a) return;
+  if(e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button!==0) return;
+  var h = a.getAttribute('href')||'';
+  if(!h || /^(#|javascript:|mailto:|tel:|sms:)/i.test(h)) return;
+  if(a.hasAttribute('download')) return;
+  if(a.target && a.target!=='_self'){ e.preventDefault(); nav(a.href); return; }
+  e.preventDefault(); nav(a.href);
+}, true);
+document.addEventListener('submit', function(e){
+  var f=e.target; if(!f || f.tagName!=='FORM') return;
+  var m=(f.getAttribute('method')||'get').toLowerCase();
+  e.preventDefault();
+  if(m!=='get'){ try{ alert('该表单是 POST 提交，代理模式下暂不支持。可在设置里切换到「直连」再试。'); }catch(err){} return; }
+  var q=[];
+  Array.prototype.forEach.call(f.querySelectorAll('input,select,textarea'), function(el){
+    if(!el.name) return;
+    if(el.disabled) return;
+    if((el.type==='checkbox'||el.type==='radio') && !el.checked) return;
+    q.push(encodeURIComponent(el.name)+'='+encodeURIComponent(el.value||''));
+  });
+  var action = f.getAttribute('action') || location.href;
+  var url = action.split('?')[0] + (q.length? '?'+q.join('&') : '');
+  nav(url);
+}, true);
+try{ window.open = function(u){ if(u) nav(u); return null; }; }catch(e){}
+})();
+`;
+}
+function prepareDoc(html, baseUrl){
+  const v = vp();
+  let out = html.replace(/<meta[^>]+name\s*=\s*["']?viewport["']?[^>]*>/gi, '');
+  const inject = '<base href="'+baseUrl.replace(/"/g,'&quot;')+'">'
+    + '<meta name="viewport" content="width='+v.w+', initial-scale=1">'
+    + (st.pc===false ? '' : '<script>'+spoofJs(UAS[st.ua]||UAS.win_chrome, v.w, v.h)+'<\/script>');
+  if(/<head[^>]*>/i.test(out)) out = out.replace(/<head[^>]*>/i, m=>m+inject);
+  else if(/<html[^>]*>/i.test(out)) out = out.replace(/<html[^>]*>/i, m=>m+'<head>'+inject+'</head>');
+  else out = inject + out;
+  return out;
+}
+
+/* ==================== 加载 ==================== */
+function setFrameSrc(u){
+  view.removeAttribute('srcdoc');
+  view.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals');
+  view.src = u;
+}
+function setFrameDoc(html){
+  view.removeAttribute('src');
+  view.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals');
+  view.setAttribute('srcdoc', html);
+}
+let loadSeq = 0;
+async function open(raw, fromHistory){
+  let target;
+  if(isUrl(raw)) target = toPcUrl(raw);
+  else target = searchUrl(raw);
+  if(!target) { toast('无法识别的地址'); return; }
+  curUrl = target;
+  urlInput.value = target.replace(/^https?:\/\//,'').replace(/\/$/,'');
+  home.classList.add('hide'); wrap.classList.remove('hide');
+  const seq = ++loadSeq;
+
+  if(!fromHistory){
+    hist = hist.slice(0, hi+1);
+    hist.push({u:target, t:urlInput.value||target});
+    if(hist.length>30) hist.shift();
+    hi = hist.length-1;
+    try{ localStorage.setItem('dmb_hist_v1', JSON.stringify(hist)); }catch(e){}
+    renderRecent();
+  }
+  updateNav();
+  landscapeTip();
+
+  if(st.mode === 'direct'){
+    showStatus('直连加载（电脑视口）…');
+    setFrameSrc(target);
+    return;
+  }
+  showStatus('正在以电脑身份抓取页面…');
+  try{
+    const res = await grabViaProxy(target);
+    if(seq !== loadSeq) return;
+    setFrameDoc(prepareDoc(res.html, target));
+    toast('已通过 ' + res.via + ' 载入电脑版', 1600);
+  }catch(e){
+    if(seq !== loadSeq) return;
+    if(st.mode === 'auto'){
+      showStatus('代理不可用，改用直连…', true);
+      toast('代理均失败，已直连（部分站点会拒绝嵌入）', 2600);
+      setFrameSrc(target);
+    }else{
+      showStatus('加载失败：' + e.message, true);
+      toast('可切换加载模式或换一个代理试试', 3200);
+    }
+  }
+}
+function landscapeTip(){
+  if(st._tipShown) return;
+  if(window.innerHeight > window.innerWidth){
+    st._tipShown = true;
+    toast('提示：横屏 + 双指放大，看电脑版更舒服', 3000);
+  }
+}
+function go(raw){ open(raw, false); }
+function back(){ if(hi>0){ hi--; open(hist[hi].u, true); } }
+function fwd(){ if(hi<hist.length-1){ hi++; open(hist[hi].u, true); } }
+function reload(){ if(curUrl) open(curUrl, true); }
+function updateNav(){ $('#bBack').classList.toggle('off', hi<=0); $('#bFwd').classList.toggle('off', hi>=hist.length-1); }
+
+view.addEventListener('load', ()=>{ hideStatus(); });
+window.addEventListener('message', e=>{
+  const d = e.data;
+  if(d && d.__dmb === 'nav' && d.url){ open(d.url, false); }
+});
+
+/* ==================== 缩放 / 平移 ==================== */
+function layout(){
+  const v = vp();
+  stage.style.width = v.w+'px';
+  stage.style.height = v.h+'px';
+}
+function applyScale(s, centerClientX, centerClientY){
+  const v = vp();
+  s = Math.min(3, Math.max(.2, s));
+  const old = st.scale || (wrap.clientWidth / v.w);
+  const rect = wrap.getBoundingClientRect();
+  const cx = (centerClientX==null ? rect.width/2 : centerClientX - rect.left);
+  const cy = (centerClientY==null ? rect.height/2 : centerClientY - rect.top);
+  const px = (wrap.scrollLeft + cx) * (s/old) - cx;
+  const py = (wrap.scrollTop + cy) * (s/old) - cy;
+  st.scale = s; save();
+  scaleNow();
+  wrap.scrollLeft = px; wrap.scrollTop = py;
+}
+function scaleNow(){
+  const v = vp(); const s = st.scale;
+  stage.style.transform = 'scale('+s+')';
+  sizer.style.width = (v.w*s)+'px';
+  sizer.style.height = (v.h*s)+'px';
+}
+function fit(){ applyScale(wrap.clientWidth / vp().w); st.fit=true; save(); }
+view.addEventListener('load', scaleNow);
+
+/* 双指缩放 */
+let pinch=null;
+wrap.addEventListener('touchstart', e=>{
+  if(e.touches.length===2){
+    const [a,b]=e.touches;
+    pinch = { d:Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY), s:st.scale };
+  }
+}, {passive:true});
+wrap.addEventListener('touchmove', e=>{
+  if(e.touches.length===2 && pinch){
+    e.preventDefault();
+    const [a,b]=e.touches;
+    const d = Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY);
+    applyScale(pinch.s * (d/pinch.d), (a.clientX+b.clientX)/2, (a.clientY+b.clientY)/2);
+  }
+}, {passive:false});
+wrap.addEventListener('touchend', ()=>{ pinch=null; }, {passive:true});
+wrap.addEventListener('dblclick', e=>{ st.scale>0.9 ? fit() : applyScale(1, e.clientX, e.clientY); });
+
+/* ==================== 界面 ==================== */
+function renderEngines(){
+  const box = $('#engines'); box.innerHTML='';
+  Object.keys(ENGINES).forEach(k=>{
+    const b=document.createElement('button');
+    b.textContent = ENGINES[k].n;
+    if(k===st.engine) b.classList.add('on');
+    b.onclick = ()=>{ st.engine=k; save(); renderEngines(); syncSettings(); };
+    box.appendChild(b);
+  });
+}
+function renderSites(){
+  const g=$('#sites'); g.innerHTML='';
+  SITES.forEach(s=>{
+    const a=document.createElement('a');
+    a.innerHTML = '<span class="em">'+s.e+'</span><span>'+s.n+'</span>';
+    a.onclick = ()=>go(s.u);
+    g.appendChild(a);
+  });
+}
+function renderRecent(){
+  const box=$('#recent'), sec=$('#recentSect');
+  box.innerHTML='';
+  const list = hist.slice(-12).reverse();
+  sec.classList.toggle('hide', !list.length);
+  list.forEach(h=>{
+    const b=document.createElement('button');
+    b.textContent = h.t.slice(0,28);
+    b.onclick = ()=>open(h.u, false);
+    box.appendChild(b);
+  });
+}
+function syncSettings(){
+  $('#sVp').value = st.vp; $('#sUa').value = st.ua; $('#sMode').value = st.mode;
+  $('#sProxy').value = st.proxy; $('#sCustom').value = st.custom || '';
+  $('#rowCustom').classList.toggle('hide', st.proxy!=='custom');
+  const sel=$('#sEngine'); sel.innerHTML='';
+  Object.keys(ENGINES).forEach(k=>{
+    const o=document.createElement('option'); o.value=k; o.textContent=ENGINES[k].n; sel.appendChild(o);
+  });
+  sel.value = st.engine;
+}
+$('#sVp').onchange = e=>{ st.vp=e.target.value; save(); layout(); fit(); if(curUrl) reload(); };
+$('#sUa').onchange = e=>{ st.ua=e.target.value; save(); if(curUrl) reload(); };
+$('#sMode').onchange = e=>{ st.mode=e.target.value; save(); if(curUrl) reload(); };
+$('#sProxy').onchange = e=>{ st.proxy=e.target.value; save(); syncSettings(); };
+$('#sCustom').onchange = e=>{ st.custom=e.target.value; save(); };
+$('#sEngine').onchange = e=>{ st.engine=e.target.value; save(); renderEngines(); };
+$('#zFit').onclick = fit;
+$('#z100').onclick = ()=>{ applyScale(1); st.fit=false; save(); };
+$('#bClear').onclick = ()=>{ hist=[]; hi=-1; localStorage.removeItem('dmb_hist_v1'); renderRecent(); updateNav(); toast('已清除'); };
+$('#bTest').onclick = async ()=>{
+  const out=$('#testOut'); out.innerHTML='';
+  const test='https://example.com';
+  for(const k of Object.keys(PROXIES)){
+    const chip=document.createElement('button'); chip.textContent=PROXIES[k].n+' …'; out.appendChild(chip);
+    (async()=>{
+      const t0=Date.now();
+      const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),10000);
+      try{
+        const r=await fetch(PROXIES[k].f(test),{signal:ctl.signal});
+        clearTimeout(to); const txt=await r.text();
+        if(r.ok && txt.length>100){ chip.textContent=PROXIES[k].n+' ✓ '+(Date.now()-t0)+'ms'; chip.classList.add('on'); }
+        else { chip.textContent=PROXIES[k].n+' ✗ '+r.status; }
+      }catch(e){ clearTimeout(to); chip.textContent=PROXIES[k].n+' ✗ 超时/不可用'; }
+    })();
+  }
+};
+
+$('#bBack').onclick = back;
+$('#bFwd').onclick = fwd;
+$('#bReload').onclick = reload;
+$('#bHome').onclick = ()=>{ home.classList.remove('hide'); wrap.classList.add('hide'); urlInput.value=''; };
+$('#bSet').onclick = ()=>{ syncSettings(); $('#sheet').classList.add('on'); $('#mask').classList.add('on'); };
+$('#mask').onclick = ()=>{ $('#sheet').classList.remove('on'); $('#mask').classList.remove('on'); };
+$('#pc').onclick = ()=>{
+  st.pc = !st.pc; save();
+  $('#pc').classList.toggle('off', !st.pc);
+  toast(st.pc ? '电脑伪装已开启' : '电脑伪装已关闭（网页会认出手机）', 1800);
+  if(curUrl) reload();
+};
+function submitBar(){ const v=urlInput.value.trim(); if(v) go(v); }
+urlInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); submitBar(); urlInput.blur(); } });
+$('#bGo').onclick = ()=>{ const v=$('#q').value.trim(); if(v) go(v); };
+$('#q').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); go(e.target.value.trim()); e.target.blur(); } });
+
+window.addEventListener('resize', ()=>{ if(st.fit) fit(); else scaleNow(); });
+window.addEventListener('orientationchange', ()=>setTimeout(()=>{ if(st.fit) fit(); },300));
+
+/* 启动 */
+layout();
+renderEngines(); renderSites(); renderRecent(); syncSettings(); updateNav();
+$('#pc').classList.toggle('off', !st.pc);
+st.scale = wrap.clientWidth / vp().w; scaleNow();
+</script>
+</body>
+</html>
